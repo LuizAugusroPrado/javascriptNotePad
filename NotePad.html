@@ -1,1 +1,531 @@
 
+<!DOCTYPE html><html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body id="myBody" style="width:100wv; height:100hv;">
+</body>
+<script>
+
+MyBody = document.getElementById("myBody");
+MyBody.style.background = "#ccffff";
+// Remove o comportamento de puxar para atualizar verticalmente
+MyBody.style.overscrollBehaviorY = 'contain';
+// Aplica o bloqueio no elemento raiz (HTML) e no BODY
+document.documentElement.style.overscrollBehaviorY = 'none';
+document.body.style.overscrollBehaviorY = 'none';
+
+
+MyBarButtons = document.createElement("div");
+MyContent = document.createElement("div");
+MyText = document.createElement("textarea");
+MyView = document.createElement("div");
+MyBtnRun = document.createElement("button");
+MyBtnBreakLines = document.createElement("button");
+MyBtnSave = document.createElement("button");
+
+//adiciona os elementos
+MyBody.append(MyBarButtons);
+MyBody.append(MyContent);
+MyContent.append(MyText);
+MyContent.append(MyView);
+MyBarButtons.append(MyBtnRun);
+MyBarButtons.append(MyBtnBreakLines);
+MyBarButtons.append(MyBtnSave);
+
+// atribui algumas propriedades
+MyBarButtons.style.height = "50px";
+MyBarButtons.style.display = "flex";
+MyBarButtons.style.flexDirection = "row";
+MyBarButtons.style.gap = "15px";
+
+MyContent.style.height = "calc(100% - 50px)";
+MyText.style.height = "50%";
+
+
+MyText.value = `\n// ================= Formulas ======================\nvar g = InitGraphic();\nvar Grau1 =function(x, p) { return p[0]*x + p[1]; } ;\nvar Grau2 =function(x, p) { return p[0]*x*x + p[1]*x + p[2]; } ;\ng.addFunction(Grau1, "x", [1,0] , 2, "#00ff00", true);\ng.addFunction(Grau2, "x²/4 + 2x + 5", [1/4, 2, 5], 2, "#ff0000", true);\ng.installMyFunctions();\ng.plotMyFunctions();\n`;
+
+
+MyView.style.height = "50%";
+MyBtnRun.innerHTML = "Run";
+MyBtnBreakLines.innerHTML = "Break lines";
+MyBtnSave.innerHTML = "Save";
+
+// cria eventos de botoes
+MyBtnRun.onclick = function()
+{
+try
+{
+var nameF = MyText.value;
+var MyFunction = new Function(nameF);
+MyFunction();
+}
+catch (erro)
+{
+const erroCompleto = erro.stack || erro.message || erro;
+MyView.textContent = erroCompleto;
+}
+}
+MyBtnBreakLines.onclick = function()
+{
+if(MyText.wrap=="on") MyText.wrap = "off";
+else MyText.wrap = "on";
+}
+
+async function salvarArquivo()
+{
+try {
+// 1. Abre a janela nativa para você escolher o
+//nome do arquivo e a pasta
+
+
+const opcoes = {
+suggestedName: 'nota'+ Date.now(),
+types: [{
+description: 'txt, .js or HTML',
+accept: {
+      'text/javascript': ['.js'],
+      'text/plain': ['.txt'],
+      'text/html': ['.html']
+    }
+
+}],
+};
+const handle = await window.showSaveFilePicker(opcoes);
+
+// 2. Cria o fluxo de escrita e
+//joga o texto da sua caixa lá dentro
+
+const writable = await handle.createWritable();
+await writable.write(MyText.value);
+await writable.close();
+
+MyView.textContent = "Arquivo salvo com sucesso!";
+} catch (erro) {
+MyView.textContent = "Cancelado ou Erro: " + erro.message;
+}
+}
+
+MyBtnSave.onclick = function()
+{
+salvarArquivo();
+}
+
+function formatarCodigoAllmanFinal(codigoFonte) {
+    let resultado = "";
+    let i = 0;
+    let nivelIndentacao = 0;
+    const espacosPorNivel = "    "; // CORRIGIDO: Adicionados os 4 espaços que sumiram
+
+    function obterIndentacao() {
+        return espacosPorNivel.repeat(nivelIndentacao);
+    }
+
+    while (i < codigoFonte.length) {
+        let char = codigoFonte[i];
+
+        // 1. IGNORAR COMENTÁRIOS DE UMA LINHA (// ...)
+        if (char === '/' && codigoFonte[i + 1] === '/') {
+            resultado += "//";
+            i += 2;
+            while (i < codigoFonte.length && codigoFonte[i] !== '\n') {
+                resultado += codigoFonte[i];
+                i++;
+            }
+            continue;
+        }
+
+        // 2. IGNORAR COMENTÁRIOS DE MÚLTIPLAS LINHAS (/* ... */)
+        if (char === '/' && codigoFonte[i + 1] === '*') { // CORRIGIDO: Era '', mudado para '*'
+            resultado += "/*";
+            i += 2;
+            while (i < codigoFonte.length) {
+                if (codigoFonte[i] === '*' && codigoFonte[i + 1] === '/') { // CORRIGIDO: Era '', mudado para '*'
+                    resultado += "*/";
+                    i += 2;
+                    break;
+                }
+                resultado += codigoFonte[i];
+                i++;
+            }
+            continue;
+        }
+
+        // 3. IGNORAR STRINGS
+        if (char === '"' || char === "'" || char === '`') {
+            let tipoAspas = char;
+            resultado += char;
+            i++;
+            while (i < codigoFonte.length) {
+                resultado += codigoFonte[i];
+                // CORRIGIDO: Escapada a barra invertida '\\' para o JS não anular a aspa
+                if (codigoFonte[i] === tipoAspas && codigoFonte[i - 1] !== '\\') {
+                    break;
+                }
+                i++;
+            }
+            i++;
+            continue;
+        }
+
+        // 4. IGNORAR EXPRESSÕES REGULARES (Regex)
+        if (char === '/') {
+            let anterior = resultado.trim().slice(-1);
+            if (!/[a-zA-Z0-9)]/.test(anterior)) {
+                resultado += char;
+                i++;
+                while (i < codigoFonte.length) {
+                    resultado += codigoFonte[i];
+                    // CORRIGIDO: Escapada a barra invertida '\\'
+                    if (codigoFonte[i] === '/' && codigoFonte[i - 1] !== '\\') {
+                        break;
+                    }
+                    i++;
+                }
+                i++;
+                continue;
+            }
+        }
+
+        // 5. CHAVE DE ABERTURA {
+        if (char === '{') {
+            resultado = resultado.trimEnd();
+            if (!resultado.endsWith('\n')) {
+                resultado += "\n";
+            }
+            resultado += obterIndentacao() + "{\n";
+            nivelIndentacao++;
+            resultado += obterIndentacao();
+            i++;
+            continue;
+        }
+
+        // 6. CHAVE DE FECHAMENTO }
+        if (char === '}') {
+            nivelIndentacao = Math.max(0, nivelIndentacao - 1);
+            resultado = resultado.trimEnd();
+            if (!resultado.endsWith('\n')) {
+                resultado += "\n";
+            }
+            resultado += obterIndentacao() + "}\n";
+            resultado += obterIndentacao();
+            i++;
+            continue;
+        }
+
+        /* 7. QUEBRAS DE LINHA NO CÓDIGO */
+        if (char === '\n') {
+            resultado = resultado.trimEnd() + "\n" + obterIndentacao();
+            i++;
+            continue;
+        }
+
+        resultado += char;
+        i++;
+    }
+
+    /* Limpeza estética das linhas */
+    return resultado
+        .split('\n')
+        .map(linha => linha.trim() === "" ? "" : linha)
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+//var MyFontSource = codeTeste; 
+//console.log(formatarCodigoAllmanFinal(MyFontSource)); 
+//MyView.textContent = formatarCodigoAllmanFinal(MyFontSource);
+
+MyBtnIndentar = document.createElement("button");
+MyBarButtons.append(MyBtnIndentar);
+MyBtnIndentar.innerHTML = "Indentar";
+MyBtnIndentar.onclick = function()
+{
+try
+{
+ var codigoUsuario = MyText.value;
+ MyText.value = formatarCodigoAllmanFinal(codigoUsuario);
+}
+catch (erro)
+{
+const erroCompleto = erro.stack || erro.message || erro;
+MyView.textContent = erroCompleto;
+}
+}
+
+var InitGraphic = function()
+{
+ MyView.innerHTML = "Plano Cartesiano:<br>"; 
+ var canvas = document.createElement("canvas"); 
+ canvas.Observador = {};
+ canvas.Observador.x = 0; 
+ canvas.Observador.y = 0;
+ canvas.potenciaAtual = 0;
+ canvas.TmW = canvas.width = 550; 
+ canvas.TmH = canvas.height = 550; 
+ canvas.myFunctions = []; 
+ canvas.escala = 1;
+ canvas.ctx = canvas.getContext("2d"); 
+ canvas.showGrid = true;
+ canvas.Clean = function()
+ {
+     this.ctx.fillStyle = "#FFFFFF"; 
+     this.ctx.fillRect(0,0,this.offsetWidth,this.offsetHeight);
+ }
+ canvas.drawLine = function(pontos, lineWidth, color )
+ {
+    this.ctx.lineWidth = lineWidth; 
+    this.ctx.strokeStyle = color; 
+    this.ctx.beginPath();
+    for(var y=0; y<pontos.length; y++)
+    {
+         if(pontos[y]!=null)
+         {
+            if(y==0 || pontos[y-1]==null)
+            {
+               //this.ctx.beginPath();
+               this.ctx.moveTo(pontos[y][0],pontos[y][1]); 
+            }
+            else
+            {
+               this.ctx.lineTo(pontos[y][0],pontos[y][1]);
+            }
+         }
+         else
+         {
+            this.ctx.stroke();
+         }
+    }
+    this.ctx.stroke();
+ }
+ canvas.plotAxis = function()
+ {
+  if(this.showGrid)
+  {
+    var ax = 10;
+    var ay = 10;
+    var xEscalado = (this.TmW/2) - this.Observador.x * this.escala;
+    var yEscalado = (this.TmH/2) - this.Observador.y * this.escala;
+    var sx = ax * this.escala;
+    var sy = ay * this.escala;
+    this.drawLine([[ xEscalado - sx, yEscalado],[ xEscalado + sx, yEscalado]], 2, "#cccccccc");
+    this.drawLine([[ xEscalado, yEscalado - sy],[ xEscalado, yEscalado + sy]], 2, "#cccccccc");
+  }
+ }
+ canvas.plotMyFunction = function(formule, params, lineWidth, color, myX, myY)
+ {
+    MyDx = 1; 
+    MyXi = 0; 
+    if(myX==null) myX= 0; 
+    if(myY==null) myY= 0;  
+    var totalCount = this.width/MyDx; 
+    var myPontos = []; 
+    var yfOld = null; 
+    for(var x1 = -this.TmW / 2; x1 < this.TmW / 2; x1 += MyDx)
+    {
+         var yf = 0;
+         // Aplica a escala no X que entra na fórmula
+         var xReal = (x1 / this.escala) + myX;
+         
+         if(params==null) 
+            yf = (formule(xReal)+myY)*this.escala; 
+         else 
+            yf = (formule(xReal, params)+myY)*this.escala; 
+            
+         if(yf==null && yfOld!=null) 
+            myPontos.push(null); 
+         else if( yf!=null) 
+            // Mantém exatamente o seu push original intacto
+            myPontos.push([x1+this.offsetWidth/2, -yf+this.offsetHeight/2]); 
+         yfOld = yf;
+    }
+    this.drawLine(myPontos, lineWidth, color);
+ }; 
+ canvas.addFunction = function(MyFunc1, name, parameters, lineWidth, color, isToPlot)
+ {
+    var Obj1 = {};
+    Obj1.myFunction = MyFunc1; 
+    Obj1.parameters = parameters;
+    Obj1.lineWidth = lineWidth; 
+    Obj1.color = color; 
+    Obj1.name = name; 
+    Obj1.isToPlot = isToPlot; 
+    this.myFunctions.push(Obj1);
+ };
+ canvas.plotMyFunctions = function()
+ {
+    this.Clean();
+    for(var i=0; i<this.myFunctions.length; i++)
+    {
+        if(this.myFunctions[i].isToPlot)
+        {
+             var a = this.myFunctions[i].myFunction; 
+             var b = this.myFunctions[i].parameters; 
+             var c = this.myFunctions[i].lineWidth; 
+             var d = this.myFunctions[i].color; 
+             this.plotMyFunction(a,b,c,d, this.Observador.x, this.Observador.y);
+        }
+    }
+    this.ctx.beginPath();
+    this.ctx.fillStyle = "blue"; 
+    this.ctx.font = "15px Arial"; 
+    this.ctx.fillText("x: "+this.Observador.x+" y: "+this.Observador.y, 10,20);
+    this.ctx.fill();
+    this.plotAxis();
+ };
+ canvas.onclick = function(ev)
+ {
+    this.Observador.x += (ev.offsetX - this.offsetWidth / 2) / this.escala; 
+    this.Observador.y += (ev.offsetY - this.offsetHeight/ 2) / this.escala; 
+    this.plotMyFunctions();
+ };
+ var DivFunctions = document.createElement("div"); 
+ MyBarBtns2 = document.createElement("div");
+ MyBarBtns2.style.display = "flex";
+ MyBarBtns2.style.flexDirection = "row";
+ MyBarBtns2.style.gap = "15px";
+
+ DivFunctions.append(MyBarBtns2);
+ MyBarBtns2.style.height = "50px";
+
+ var MyBtnShowFunctions = document.createElement("button"); 
+ MyBtnShowFunctions.innerHTML = "Show functions"; 
+
+ MyBtnShowFunctions.onclick = function() 
+ {
+    if(DivSelectedsFunctions.style.display=="none") 
+        DivSelectedsFunctions.style.display = "block";
+    else DivSelectedsFunctions.style.display = "none"; 
+ };
+ MyBarBtns2.append(MyBtnShowFunctions); 
+ 
+ DivSelectedsFunctions = document.createElement("div"); 
+ DivFunctions.append(DivSelectedsFunctions); 
+ DivSelectedsFunctions.style.height = "calc(100% - 50px)"; 
+ DivSelectedsFunctions.style.display = "none"; 
+ MyView.append(DivFunctions); 
+
+ // Criando os botões de escala
+ var MyBtnZoomIn  = document.createElement("button");
+ var MyBtnZoomOut = document.createElement("button");
+
+ MyBtnZoomIn.innerHTML = " Zoom + ";
+ MyBtnZoomOut.innerHTML = " Zoom - ";
+
+ MyBarBtns2.append(MyBtnZoomIn);
+ MyBarBtns2.append(MyBtnZoomOut);
+
+ // Evento para aproximar (aumenta a potência, o gráfico dá "zoom in")
+ MyBtnZoomIn.onclick = function()
+ {
+    canvas.potenciaAtual += 1;
+    canvas.escala = Math.pow(2,canvas.potenciaAtual);
+    canvas.plotMyFunctions();
+ };
+
+ // Evento para afastar (diminui a potência, o gráfico dá "zoom out")
+ MyBtnZoomOut.onclick = function()
+ {
+    canvas.potenciaAtual -= 1;
+    canvas.escala = Math.pow(2, canvas.potenciaAtual);
+    canvas.plotMyFunctions();
+ };
+
+canvas.addMetaFunctionToCalc = function(Meta)
+{
+this.addFunction(Meta.myFuncA,Meta.name,Meta.params,2,Meta.colorA, false);
+this.addFunction(Derivada,"Derivada de "+Meta.name,Meta,2,Meta.color0,false);
+this.addFunction(Integral,"Integral de "+Meta.name,Meta,2,Meta.color2,false);
+}
+
+ MyView.append(canvas); 
+ canvas.installMyFunctions = function()
+ { 
+  // 3. Fazer o loop para criar um checkbox para CADA objeto da coleção 
+  this.myFunctions.forEach((item) => { 
+     // Criar a label (container do item que facilita o clique no celular)    
+     const label = document.createElement('label');
+     label.style.display = 'flex';
+     label.style.alignItems = 'center'; 
+     label.style.padding = '12px 8px'; 
+     // Espaçamento confortável para o dedo 
+     label.style.borderBottom = '1px solid #eee'; 
+     // Linha divisória sutil label.style.fontSize = '16px'; 
+     label.style.cursor = 'pointer'; 
+     // Criar o input checkbox 
+     const checkbox = document.createElement('input');
+     checkbox.canvas = this; 
+     checkbox.type = 'checkbox'; 
+     checkbox.checked = item.isToPlot; // Define se começa marcado ou não 
+     checkbox.style.width = '22px'; 
+     checkbox.style.height = '22px'; 
+     checkbox.style.marginRight = '12px'; // Criar o texto com o nome 
+     var texto = document.createTextNode(item.name);
+     // Adicionar o evento de clique (Change) 
+     checkbox.addEventListener('change', (event) => { 
+        // Altera DIRETAMENTE o atributo do objeto nesta posição da lista 
+        item.isToPlot = event.target.checked; 
+        this.plotMyFunctions(); 
+     } ); 
+     // Montar a estrutura: coloca o checkbox e o texto
+     label.append(checkbox);
+     label.append(texto);
+     // Inserir a label pronta dentro do container principal 
+     DivSelectedsFunctions.appendChild(label);
+  }); 
+ };
+
+
+ return canvas;
+};
+
+
+var DerivadaPontoX = function(x, params, MyFunct)
+{
+ var h = 0.00000001;
+ var xi = x-h; var yi = null;
+ var xf = x+h; var yf = null;
+ if(params!=null){ yi = MyFunct(xi, params); yf = MyFunct(xf, params);}
+ else            { yi = MyFunct(xi); yf = MyFunct(xf);}
+ if (yi === null || yf === null) return 0;
+ return (yf-yi)/(xf-xi);
+}
+
+var Derivada = function(x, p)
+{
+ return DerivadaPontoX(x, p.params, p.myFuncA);
+};
+
+// Nova abordagem: Calcula a área acumulada por trapézios de um X inicial até o X atual
+var CalcularAreaAcumulada = function(xLimite, params, MyFunct) 
+{
+    var xInicial = -10; // Defina aqui onde o seu gráfico começa na esquerda da tela (ex: -10)
+    var passos = 200;   // Quantidade de fatias para o cálculo numérico
+    var dx = (xLimite - xInicial) / passos;
+    
+    // ATENÇÃO PARA O e^x: se a função for Exp e começar antes de 0, a matemática se ajusta.
+    // Mas para garantir o comportamento padrão de integrais definidas, começamos em 0.
+
+    var areaTotal = 0; 
+    var xAtual = xInicial;
+    var yAnterior = (params != null) ? MyFunct(xAtual, params) : MyFunct(xAtual);
+    for (var i = 1; i <= passos; i++) 
+    {
+        xAtual = xInicial + (i * dx);
+        var yAtual = (params != null) ? MyFunct(xAtual, params) : MyFunct(xAtual);
+        // Regra do Trapézio: média das alturas * largura
+        areaTotal += ((yAtual + yAnterior) / 2) * dx;
+        yAnterior = yAtual;
+    }
+    return areaTotal;
+};
+
+var Integral = function(x, p) 
+{
+    return CalcularAreaAcumulada(x, p.params, p.myFuncA);
+}
+
+
+
+
+</script>
+</html>
