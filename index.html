@@ -40,8 +40,414 @@ MyContent.style.height = "calc(100% - 50px)";
 MyText.style.height = "50%";
 
 
-MyText.value = `\n// ================= Formulas ======================\nvar g = InitGraphic();\nvar Grau1 =function(x, p) { return p[0]*x + p[1]; } ;\nvar Grau2 =function(x, p) { return p[0]*x*x + p[1]*x + p[2]; } ;\ng.addFunction(Grau1, "x", [1,0] , 2, "#00ff00", true);\ng.addFunction(Grau2, "x²/4 + 2x + 5", [1/4, 2, 5], 2, "#ff0000", true);\ng.installMyFunctions();\ng.plotMyFunctions();\n`;
+MyText.value = `
+var g = InitGraphic();
 
+if(MyErros===undefined)
+{
+    var MyErros = document.createElement("div");
+    MyView.append(MyErros)
+}
+
+var Derivada = function(x, ObjFormule)
+{
+ var h = 0.00000001;
+ var xi = x-h; var yi = null;
+ var xf = x+h; var yf = null;
+ yi = ObjFormule.getValue(xi); 
+ yf = ObjFormule.getValue(xf);
+ if (yi === null || yf === null) return null;
+ return (yf-yi)/(xf-xi);
+}
+
+var Integral = function(x, ObjFormule) 
+{
+   var Dx = 0.00000001;
+   var Dm = 0.000000005;
+   var x1 = x - Dm;
+   var x2 = x     ;
+   var x3 = x + Dm;
+   var y1 = ObjFormule.getValue(x1);
+   var y2 = ObjFormule.getValue(x2); 
+   var y3 = ObjFormule.getValue(x3);
+
+   var a1 = Math.log(y1, x1);
+   var b1 = Math.log(y2, x2);
+
+   r1 = Pow(y1, a1)
+
+
+   // y1 = (yf1 - yi1)/Dm ;
+   // y2 = (yf2 - yi2)/mx ; // = f(x);
+   // Dx*y1 
+   // andamento...
+
+   ObjFormule.acumulada += y2;
+   var resp = ObjFormule.acumulada;
+   // MyErros.innerHTML += (ObjFormule.acumulada*Dm)+"<br>";
+   return r1
+}
+
+g.plotAxis = function()
+{
+    var Ex={}; Ex.i={};   Ex.f={}; 
+    Ex.i.x=-3; Ex.i.y=0;  Ex.f.x=3; Ex.f.y=0;
+    var Ey={}; Ey.i={};   Ey.f={};
+    Ey.i.x=0;  Ey.i.y=-3; Ey.f.x=0; Ey.f.y=3;
+    this.drawLine([this.getPos(Ex.i), this.getPos(Ex.f)], 2, "#cccccccc");
+    this.drawLine([this.getPos(Ey.i), this.getPos(Ey.f)], 2, "#cccccccc");
+}
+
+g.plotSqrCheby = function()
+{
+    var Et={}; Et.i={};   Et.f={}; 
+    Et.i.x=-1; Et.i.y=1;  Et.f.x=1; Et.f.y=1;
+
+    var Ex={}; Ex.i={};   Ex.f={}; 
+    Ex.i.x=-1; Ex.i.y=-1; Ex.f.x=1; Ex.f.y=-1;
+
+    var Ey={}; Ey.i={};   Ey.f={};
+    Ey.i.x=-1; Ey.i.y=-1; Ey.f.x=-1; Ey.f.y=1;
+
+    var Ed={}; Ed.i={};   Ed.f={}; 
+    Ed.i.x=1;  Ed.i.y=1;  Ed.f.x=1; Ed.f.y=-1;
+
+    this.drawLine([this.getPos(Et.i), this.getPos(Et.f)], 2, "#cccccccc");
+    this.drawLine([this.getPos(Ey.i), this.getPos(Ey.f)], 2, "#cccccccc");
+    this.drawLine([this.getPos(Ex.i), this.getPos(Ex.f)], 2, "#cccccccc");
+    this.drawLine([this.getPos(Ed.i), this.getPos(Ed.f)], 2, "#cccccccc");
+}
+
+g.get_Y_and_Derivada = function(x, ObjFormule)
+{
+     var obj = {}; obj.x=x; 
+     obj.y = ObjFormule.getValue(obj.x);
+     obj.derivada = Derivada(obj.x, ObjFormule);
+     if(!isFinite(obj.derivada)) obj.derivada = Number.MAX_VALUE*Math.sign(obj.derivada);
+     obj.marcou = true;
+     if(obj.y==null) 
+     {
+        this.derivada=0;
+        this.marcou= false;
+     };
+     return obj;
+};
+
+g.getPos = function(obj)
+{
+ return [(obj.x+this.TmW/2-this.Observador.x)*this.escala, (-obj.y+this.TmH/2-this.Observador.y)*this.escala];
+};
+
+g.addFunction = function(MyFunc, name, parameters, lineWidth, color, isToPlot, isPolar, kindPlane)
+{
+    var Obj1 = {};
+    Obj1.myFunction = MyFunc;
+    Obj1.parameters = parameters;
+    Obj1.lineWidth  = lineWidth; 
+    Obj1.color      = color; 
+    Obj1.name       = name; 
+    Obj1.isToPlot   = isToPlot;
+    Obj1.isPolar    = isPolar; 
+    Obj1.kindPlane  = kindPlane;
+
+    if (parameters!=null) 
+       Obj1.getValueK = function(x) { return this.myFunction(x, this.parameters); }
+    else 
+       Obj1.getValueK = function(x) { return this.myFunction(x);};
+
+    if(parameters!=null && !Array.isArray( parameters ))
+    {
+       if (Obj1.parameters.parameters!=null) 
+          Obj1.parameters.getValue = function(x) { return this.myFunction(x, this.parameters); }
+       else 
+          Obj1.parameters.getValue = function(x) { return this.myFunction(x);};
+    }
+
+    if(Obj1.kindPlane!=null) Obj1.getValue = function(x){ return this.kindPlane(x, this)}
+    else Obj1.getValue = Obj1.getValueK
+    this.myFunctions.push(Obj1);
+};
+
+g.addMetaFunctionToCalc = function(Meta)
+{
+Meta.acumulada=0;
+this.addFunction(Meta.myFunction,Meta.name,Meta.parameters,2,Meta.colorA, false, Meta.isPolar, Meta.kindPlane);
+this.addFunction(Derivada,"Derivada de "+Meta.name,Meta,2,Meta.color0,false, Meta.isPolar);
+this.addFunction(Integral,"Integral de "+Meta.name,Meta,2,Meta.color2,false, Meta.isPolar);
+}
+
+g.plotMyFunction = function(ObjFormule)
+{
+  try
+  {
+
+    ObjFormule.acumulada = 0;
+    if( ObjFormule.parameters!=null && !Array.isArray( ObjFormule.parameters))
+     ObjFormule.parameters.acumulada=0;
+    this.escala = Math.pow(2, this.potenciaAtual+4); 
+    
+    Dx = 1/this.escala;
+    this.TmW = this.offsetWidth /this.escala;
+    this.TmH = this.offsetHeight/this.escala;
+    var Ox = this.Observador.x;
+    var Oy = this.Observador.y;
+    var myPontos = [];
+
+    var Old5 = this.get_Y_and_Derivada(Ox-(this.TmW)/2-4*Dx, ObjFormule); 
+    var Old4 = this.get_Y_and_Derivada(Ox-(this.TmW)/2-3*Dx, ObjFormule); 
+    var Old3 = this.get_Y_and_Derivada(Ox-(this.TmW)/2-2*Dx, ObjFormule); 
+    var Old2 = this.get_Y_and_Derivada(Ox-(this.TmW)/2-1*Dx, ObjFormule); 
+    var Old1 = this.get_Y_and_Derivada(Ox-(this.TmW)/2-0*Dx, ObjFormule); 
+    var LimiteInicial = Ox-this.TmW/2;
+    var LimiteFinal   = Ox+this.TmW/2 +2*Dx;
+
+   MyErros.innerHTML ="";
+   for(var x1=LimiteInicial; x1<LimiteFinal; x1+=Dx)
+   {
+      if(Old3.y!=null && Old5.marcou && Old4.marcou && Old2.y!=null && Old1.y!=null)
+      {   
+           if( !isFinite(Old3.y) ) 
+           {
+               Old3.y = null;
+               Old3.marcou = false;
+           }
+           else
+           {
+              var dif1 = Old4.derivada - Old5.derivada;
+              var dif2 = Old1.derivada - Old2.derivada;
+              var dif1ABS = Math.abs(dif1);
+              var dif2ABS = Math.abs(dif2);
+
+              var difA = Old3.derivada - Old4.derivada;
+              var difB = Old2.derivada - Old3.derivada;
+              var aABS = Math.abs(difA);
+              var bABS = Math.abs(difB);
+
+              var difDeriv1 = Math.abs(dif1ABS -dif2ABS);
+              //MyErros.innerHTML += (Old3.y*this.escala)+ " ____ " + difDeriv1 + " _____ "+(  (dif1/dif1ABS) != (dif2/dif2ABS)) + "<br>";
+
+              if(( difDeriv1>Dx/10000 && dif1/dif1ABS!=dif2/dif2ABS) || difA/aABS!=difB/bABS)
+              {
+                  Old3.y = null;
+                  Old3.marcou = false;
+              }
+           }
+           // else if(aABS > 0 && bABS > 0 && (Math.abs(aABS + bABS) > 0.8) && (difA/aABS) != (difB/bABS) ) { Old3.marcou = false; }
+      }
+      if(Old3.y != null || Old3.marcou )
+      {
+        myPontos.push(this.getPos(Old3));
+      } 
+      else if(myPontos.length>1 && myPontos[myPontos.length-1]!==null)
+      {
+        //var valT = myPontos.length;
+        //MyErros.innerHTML += myPontos[valT-1]+"<br>";
+        myPontos.splice(-2);
+        Old4 = this.get_Y_and_Derivada(x1+(-0.01-4)*Dx,ObjFormule);
+        if( Old4.y!=null )
+          if(!isFinite(Old4.y)) Old4.y=Math.sign(Old4.y)*this.TmH/2;
+        myPontos.push(this.getPos(Old4));
+        Old4.marcou = true;
+        myPontos.push(null);
+        var temp = this.get_Y_and_Derivada(x1+(+0.01-4)*Dx,ObjFormule);
+        if( temp.y!=null )
+          if(!isFinite(temp.y)) temp.y = Math.sign(temp.y)*this.TmH/2;
+        myPontos.push(this.getPos(temp));
+      }
+      Old5 = Old4; Old4 = Old3; Old3 = Old2; Old2 = Old1;
+      Old1 = this.get_Y_and_Derivada(x1, ObjFormule);
+    }
+    this.drawLine(myPontos, ObjFormule.lineWidth, ObjFormule.color);
+
+    var log = function()
+    {
+        MyErros.innerHTML = "<br>"; 
+        for(var v=0; v<myPontos.length; v++)
+        {
+          MyErros.innerHTML += (myPontos[v] ? myPontos[v][0].toFixed(1) + "," + myPontos[v][1].toFixed(1) : "null") + "<br>";
+        }
+    }
+  }
+  catch(erro){  MyErros.innerHTML = erro.stack;}
+  // log();
+};
+
+g.plotMyPolarFunction = function(ObjFormule)
+{
+  try
+  {
+    ObjFormule.acumulada = 0;
+    if( ObjFormule.parameters!=null && !Array.isArray( ObjFormule.parameters))
+     ObjFormule.parameters.acumulada=0;
+
+    var Dx = Math.PI/180;
+    this.escala = Math.pow(2, this.potenciaAtual+4); 
+    
+    this.TmW = this.offsetWidth /this.escala;
+    this.TmH = this.offsetHeight/this.escala;
+    var Ox = this.Observador.x;
+    var Oy = this.Observador.y;
+    var myPontos = [];
+
+    MyErros.innerHTML ="";
+    var n = 0;
+    for(var o=0; o<ObjFormule.parameters.lenght; o++)
+    {
+       if(ObjFormule.parameters[o]!=0) 
+       {
+          n=o;
+          break;
+       }
+    }
+    for (var theta = -Math.PI; theta <= Math.PI; theta += Dx) 
+    {
+       // 1. O valor da função na coordenada polar é o RAIO (r)
+       var raio = ObjFormule.getValue(theta);
+       // 2. Conversão Polar -> Cartesiana:
+       var px = raio * Math.cos(theta);
+       var py = raio * Math.sin(theta);
+       // 3. Aplica o deslocamento de origem (Ox, Oy), centraliza no canvas e aplica a escala
+       var canvasX = ( px - Ox +(this.TmW / 2))* this.escala;
+       var canvasY = (-py - Oy +(this.TmH / 2))* this.escala;
+       myPontos.push([canvasX, canvasY]);
+    }
+    this.drawLine(myPontos, ObjFormule.lineWidth, ObjFormule.color);
+  }
+  catch(erro){  MyErros.innerHTML = erro.stack;}
+};
+
+g.plotMyFunctions = function()
+{
+    this.Clean();
+    for(var i=0; i<this.myFunctions.length; i++)
+    {
+        if( this.myFunctions[i].isToPlot)
+        {
+          if( this.myFunctions[i].isPolar!==undefined && this.myFunctions[i].isPolar==true)
+          {
+             this.plotMyPolarFunction(this.myFunctions[i]);
+          }
+          else
+          {
+             this.myFunctions[i].acumulada = 0;
+             this.plotMyFunction(this.myFunctions[i]);
+          }
+        }
+    }
+    this.ctx.beginPath();
+    this.ctx.fillStyle = "blue"; 
+    this.ctx.font = "15px Arial"; 
+    this.ctx.fillText("x: "+this.Observador.x+" y: "+this.Observador.y, 10,20);
+    this.ctx.fill();
+    this.plotAxis();
+    this.plotSqrCheby();
+};
+
+// ================= Formulas ======================
+var Grau1 =function(x, p) { return p[0]*x + p[1]; } ;
+var Grau2 =function(x, p) { return p[0]*x*x + p[1]*x + p[2]; } ;
+var Grau3 =function(x, p) { return p[0]*x*x*x + 
+    p[1]*x*x + p[2]*x + p[3];} ;
+
+var Grau4 =function(x, p) { return p[0]*x*x*x*x +
+    p[1]*x*x*x + p[2]*x*x + p[3]*x + p[4] ; };
+
+var Grau5 =function(x, p) { return p[0]*x*x*x*x*x +
+    p[1]*x*x*x*x + p[2]*x*x*x + p[3]*x*x + p[4]*x + p[5] ; };
+
+var Exp = function(x)
+{
+    return Math.pow(Math.E, x);
+}
+var Pow = function(x, b)
+{
+    var last = ""+x
+    if( x<0 )
+    {
+       if(!Number(last.charAt(last.length-1) ) %2)
+          return   Math.pow(-x, b);
+       else
+          return - Math.pow(-x, b);
+    }
+    if(x==0) return 0;
+    else return Math.pow(x,b);
+}
+var Log = function(x, b)
+{
+    var xs = Math.abs(x);
+    var bs = Math.abs(b);
+
+    if( b==null) return (Math.log(xs)*xs/x);
+    else         return (Math.log(xs)*xs/x)/(Math.log(bs)*bs/b)
+}
+var oneOver = function(x)
+{
+    if (x==0) return null;
+    else return (1/x);
+}
+var Chebyshev = function(angle, obj)
+{
+    return obj.getValueK(Math.cos(angle));
+}
+
+var Bernoulli = function(angle, obj)
+{
+    var r = obj.getValueK(Math.cos(angle));
+    return Math.pow(r,0.5);
+}
+
+// Adiciono formulas, derivadas e integrais:
+var MetaFunc0         = {};
+MetaFunc0.parameters  = [0,0,1];
+MetaFunc0.name        = "f(x)=1";
+MetaFunc0.myFunction  = Grau2;
+MetaFunc0.color0      = "#AACC00";
+MetaFunc0.colorA      = "#AAAA33";
+MetaFunc0.color2      = "#AAFF66";
+MetaFunc0.isPolar     = true;
+//MetaFunc0.kindPlane   = Chebyshev;
+MetaFunc0.kindPlane   = Bernoulli
+g.addMetaFunctionToCalc(MetaFunc0);
+
+var MetaFunc0         = {};
+MetaFunc0.parameters  = [0,1,0];
+MetaFunc0.name        = "f(x)=x";
+MetaFunc0.myFunction  = Grau2;
+MetaFunc0.color0      = "#660000";
+MetaFunc0.colorA      = "#660033";
+MetaFunc0.color2      = "#660066";
+MetaFunc0.isPolar     = true;
+//MetaFunc0.kindPlane   = Chebyshev;
+MetaFunc0.kindPlane   = Bernoulli;
+g.addMetaFunctionToCalc(MetaFunc0);
+
+var MetaFunc0         = {};
+MetaFunc0.parameters  = [2,0,-1];
+MetaFunc0.name        = "2*x²-1";
+MetaFunc0.myFunction  = Grau2;
+MetaFunc0.color0      = "#66CC00";
+MetaFunc0.colorA      = "#66AA33";
+MetaFunc0.color2      = "#66FF66";
+MetaFunc0.isPolar     = true;
+//MetaFunc0.kindPlane   = Chebyshev;
+MetaFunc0.kindPlane   = Bernoulli;
+g.addMetaFunctionToCalc(MetaFunc0);
+
+var MetaFunc0        = {};
+MetaFunc0.parameters  = [4,0,-3,0];
+MetaFunc0.name        = "f(x)=4*x³-3*x";
+MetaFunc0.myFunction  = Grau3;
+MetaFunc0.color0      = "cyan";
+MetaFunc0.colorA      = "#6699cc";
+MetaFunc0.color2      = "#336699";
+MetaFunc0.isPolar     = true;
+//MetaFunc0.kindPlane   = Chebyshev;
+MetaFunc0.kindPlane   = Bernoulli;
+g.addMetaFunctionToCalc(MetaFunc0);
+
+g.installMyFunctions();
+g.plotMyFunctions();
+`
 
 MyView.style.height = "50%";
 MyBtnRun.innerHTML = "Run";
